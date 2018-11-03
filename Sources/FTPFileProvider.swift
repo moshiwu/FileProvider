@@ -102,7 +102,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
         urlComponents.scheme = urlComponents.scheme ?? "ftp"
         urlComponents.path = urlComponents.path.hasSuffix("/") ? urlComponents.path : urlComponents.path + "/"
         
-        self.baseURL =  urlComponents.url!.absoluteURL
+        self.baseURL = urlComponents.url!.absoluteURL
         self.mode = mode
         self.useCache = false
         self.validatingCache = true
@@ -154,9 +154,9 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
             mode = passiveMode ? .passive : .active
         }
         self.init(baseURL: baseURL, mode: mode, credential: aDecoder.decodeObject(of: URLCredential.self, forKey: "credential"))
-        self.useCache              = aDecoder.decodeBool(forKey: "useCache")
-        self.validatingCache       = aDecoder.decodeBool(forKey: "validatingCache")
-        self.supportsRFC3659       = aDecoder.decodeBool(forKey: "supportsRFC3659")
+        self.useCache = aDecoder.decodeBool(forKey: "useCache")
+        self.validatingCache = aDecoder.decodeBool(forKey: "validatingCache")
+        self.supportsRFC3659 = aDecoder.decodeBool(forKey: "supportsRFC3659")
         self.securedDataConnection = aDecoder.decodeBool(forKey: "securedDataConnection")
     }
     
@@ -231,7 +231,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
      - Parameter contents: An array of `FileObject` identifying the the directory entries.
      - Parameter error: Error returned by system.
      */
-    open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool , completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
+    open func contentsOfDirectory(path apath: String, rfc3659enabled: Bool, completionHandler: @escaping (_ contents: [FileObject], _ error: Error?) -> Void) {
         let path = ftpPath(apath)
         
         let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
@@ -298,44 +298,44 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                 return
             }
             
-            let command = rfc3659enabled ? "MLST \(path)" : "LIST \(path)"
-            self.execute(command: command, on: task, completionHandler: { (response, error) in
-                defer {
-                    self.ftpQuit(task)
-                }
-                do {
-                    if let error = error {
-                        throw error
+                let command = rfc3659enabled ? "MLST \(path)" : "LIST \(path)"
+                self.execute(command: command, on: task, completionHandler: { (response, error) in
+                    defer {
+                        self.ftpQuit(task)
                     }
-                    
-                    guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
-                        throw URLError(.badServerResponse, url: self.url(of: path))
+                    do {
+                        if let error = error {
+                            throw error
+                        }
+                        
+                        guard let response = response, response.hasPrefix("250") || (response.hasPrefix("50") && rfc3659enabled) else {
+                            throw URLError(.badServerResponse, url: self.url(of: path))
+                        }
+                        
+                        if response.hasPrefix("500") {
+                            self.supportsRFC3659 = false
+                            self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
+                        }
+                        
+                        let lines = response.components(separatedBy: "\n").compactMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        guard lines.count > 2 else {
+                            throw URLError(.badServerResponse, url: self.url(of: path))
+                        }
+                        let dirPath = path.deletingLastPathComponent
+                        let file: FileObject? = rfc3659enabled ?
+                            self.parseMLST(lines[1], in: dirPath) :
+                            (self.parseUnixList(lines[1], in: dirPath) ?? self.parseDOSList(lines[1], in: dirPath))
+                        self.dispatch_queue.async {
+                            completionHandler(file, nil)
+                        }
+                    } catch {
+                        self.dispatch_queue.async {
+                            completionHandler(nil, error)
+                        }
                     }
-                    
-                    if response.hasPrefix("500") {
-                        self.supportsRFC3659 = false
-                        self.attributesOfItem(path: path, rfc3659enabled: false, completionHandler: completionHandler)
-                    }
-                    
-                    let lines = response.components(separatedBy: "\n").compactMap { $0.isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    guard lines.count > 2 else {
-                        throw URLError(.badServerResponse, url: self.url(of: path))
-                    }
-                    let dirPath = path.deletingLastPathComponent
-                    let file: FileObject? = rfc3659enabled ?
-                        self.parseMLST(lines[1], in: dirPath) :
-                        (self.parseUnixList(lines[1], in: dirPath) ?? self.parseDOSList(lines[1], in: dirPath))
-                    self.dispatch_queue.async {
-                        completionHandler(file, nil)
-                    }
-                } catch {
-                    self.dispatch_queue.async {
-                        completionHandler(nil, error)
-                    }
-                }
-            })
+                })
+            }
         }
-    }
     
     open func storageProperties(completionHandler: @escaping (_ volume: VolumeObject?) -> Void) {
         dispatch_queue.async {
@@ -354,7 +354,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
                     }
                     progress.totalUnitCount = Int64(items.count)
                 }
-            }, completionHandler: {files, error in
+            }, completionHandler: { files, error in
                 if let error = error {
                     completionHandler([], error)
                     return
@@ -745,7 +745,7 @@ open class FTPFileProvider: NSObject, FileProviderBasicRemote, FileProviderOpera
      */
     open func create(symbolicLink path: String, withDestinationPath destPath: String, completionHandler: SimpleCompletionHandler) {
         let operation = FileOperationType.link(link: path, target: destPath)
-        _=self.doOperation(operation, completionHandler: completionHandler)
+        _ = self.doOperation(operation, completionHandler: completionHandler)
     }
 }
 
@@ -792,11 +792,11 @@ extension FTPFileProvider {
                     return
                 }
                 
-                let codes: [Int] = response.components(separatedBy: .newlines).compactMap({ $0.isEmpty ? nil : $0})
+                let codes: [Int] = response.components(separatedBy: .newlines).compactMap({ $0.isEmpty ? nil : $0 })
                     .compactMap {
-                        let code = $0.components(separatedBy: .whitespaces).compactMap({ $0.isEmpty ? nil : $0}).first
+                        let code = $0.components(separatedBy: .whitespaces).compactMap({ $0.isEmpty ? nil : $0 }).first
                         return code != nil ? Int(code!) : nil
-                }
+                    }
                 
                 if codes.filter({ (450..<560).contains($0) }).count > 0 {
                     let errorCode: URLError.Code
@@ -882,7 +882,7 @@ extension FTPFileProvider {
                 }
                 
                 if !response.hasPrefix("2") {
-                    throw  URLError(.cannotRemoveFile, url: self.url(of: sourcePath))
+                    throw URLError(.cannotRemoveFile, url: self.url(of: sourcePath))
                 }
                 self.dispatch_queue.async {
                     completionHandler?(nil)
@@ -934,8 +934,74 @@ extension FTPFileProvider {
     }
 }
 
-extension FTPFileProvider: FileProvider { }
+extension FTPFileProvider: FileProvider {}
 
 #if os(macOS) || os(iOS) || os(tvOS)
-extension FTPFileProvider: FileProvideUndoable { }
+extension FTPFileProvider: FileProvideUndoable {}
 #endif
+
+extension FTPFileProvider {
+    @discardableResult
+    open func downloadFile(file: FileObject, toLocalURL destURL: URL, completionHandler: SimpleCompletionHandler) -> Progress? {
+        let operation = FileOperationType.copy(source: file.path, destination: destURL.absoluteString)
+        guard self.fileOperationDelegate?.fileProvider(self, shouldDoOperation: operation) ?? true == true else {
+            return nil
+        }
+        
+        try? FileManager.default.removeItem(at: destURL)
+        try? FileManager.default.createDirectory(atPath: destURL.path.deletingLastPathComponent, withIntermediateDirectories: true, attributes: nil)
+        
+        let progress = Progress(totalUnitCount: file.size)
+        progress.setUserInfoObject(operation, forKey: .fileProvderOperationTypeKey)
+        progress.kind = .file
+        progress.setUserInfoObject(Progress.FileOperationKind.downloading, forKey: .fileOperationKindKey)
+        
+        let task = session.fpstreamTask(withHostName: baseURL!.host!, port: baseURL!.port!)
+        self.ftpLogin(task) { error in
+            if let error = error {
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                }
+                return
+            }
+            
+            let tempURL = URL(fileURLWithPath: NSTemporaryDirectory().appendingPathComponent(UUID().uuidString))
+            guard let stream = OutputStream(url: tempURL, append: false) else {
+                completionHandler?(CocoaError(.fileWriteUnknown, path: destURL.path))
+                return
+            }
+            
+            self.ftpDownload(task, file: file, to: stream, onTask: { task in
+                weak var weakTask = task
+                progress.cancellationHandler = {
+                    weakTask?.cancel()
+                }
+                progress.setUserInfoObject(Date(), forKey: .startingTimeKey)
+            }, onProgress: { _, totalReceived, totalSize in
+                progress.totalUnitCount = totalSize
+                progress.completedUnitCount = totalReceived
+                self.delegateNotify(operation, progress: progress.fractionCompleted)
+            }) { error in
+                if error != nil {
+                    progress.cancel()
+                }
+                do {
+                    try FileManager.default.moveItem(at: tempURL, to: destURL)
+                } catch {
+                    self.dispatch_queue.async {
+                        completionHandler?(error)
+                        self.delegateNotify(operation, error: error)
+                    }
+                    try? FileManager.default.removeItem(at: tempURL)
+                    return
+                }
+                
+                self.dispatch_queue.async {
+                    completionHandler?(error)
+                    self.delegateNotify(operation, error: error)
+                }
+            }
+        }
+        return progress
+    }
+}
